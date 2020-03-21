@@ -1,22 +1,20 @@
 import os
 import json
 
-import cv2
 import gdal
 import numpy as np
-import osgeo
 import osr
 import rasterio
 import utm
 from rasterio.mask import mask
+from rasterio.merge import merge
 from scipy.signal import medfilt
 from scipy.ndimage.measurements import label
 from scipy.ndimage import minimum_filter
+from skimage.measure import label as sklabel
 from shapely.geometry import box
 import geopandas as gpd
 from fiona.crs import from_epsg
-import pycrs
-import pandas
 
 
 class RasterHelper():
@@ -34,18 +32,18 @@ class RasterHelper():
         fnc[0] = fn
         fn = '.'.join(fnc)
         pathc[-1] = fn
-        
+
         return '/'.join(pathc)
 
-    def value_from_coordinates(self, ds, northing, easting, 
-                                xOrigin, yOrigin, pixelWidth, pixelHeight):
+    def value_from_coordinates(self, ds, northing, easting,
+                               xOrigin, yOrigin, pixelWidth, pixelHeight):
         """
         Finds DEM values from set of coordinates
         """
         i = np.floor((yOrigin - easting) / pixelHeight).astype('int')
         j = np.floor((northing - xOrigin) / pixelWidth).astype('int')
 
-        return dem[i, j]
+        return ds[i, j]
 
     def bounding_coordinates(self, ds):
         """
@@ -77,8 +75,8 @@ class RasterHelper():
         """
         try:
             gdal.Warp(
-                outpath, 
-                ds, 
+                outpath,
+                ds,
                 dstSRS='EPSG:{}'.format(outEPSG)
             )
         except:
@@ -87,12 +85,12 @@ class RasterHelper():
             )
 
         return outpath
-    
+
     def reproject_files(self, inputs, outroot, envi=False):
         """
         Takes the file list and checks to see if reprojectons are created
         This is specific to reproject form non UTM to UTM
-        This is the alternative version that is specifically used in 
+        This is the alternative version that is specifically used in
         PreProcess
         """
         rh = RasterHelper()
@@ -133,14 +131,14 @@ class RasterHelper():
         """
         Stacks a file list into a single file with multiple bands
         """
-        outvrt = '/vsimem/stacked.vrt' #/vsimem is special in-memory virtual "directory"
+        outvrt = '/vsimem/stacked.vrt'
         outds = gdal.BuildVRT(outvrt, files, separate=True)
         outds = gdal.Translate(outpath, outds)
         outds = None
 
         return os.path.exists(outpath)
 
-    def files_to_mosaic(self, fps, outpath, 
+    def files_to_mosaic(self, fps, outpath,
                         search_regex=None, dem_fps=None, write=True):
         """
         Takes list of file paths and merges them into a single file
@@ -164,7 +162,7 @@ class RasterHelper():
         )
 
         if write:
-            with rasterio.open(output, "w", **out_meta) as dest:
+            with rasterio.open(outpath, "w", **out_meta) as dest:
                 dest.write(mosaic)
 
         return mosaic
@@ -177,7 +175,7 @@ class RasterHelper():
         ar = ds.read(1)
 
         # Filter for Gully class
-        ar[ar != class_int ] = 0  
+        ar[ar != class_int] = 0
 
         # Set up structure for connectivity and find connectivity
         structure = np.ones((3, 3), dtype=np.int)
@@ -191,7 +189,7 @@ class RasterHelper():
         # Filter based on label size
         array_filt = labeled == label_filt[0]
         for l in label_filt:
-            array_filt += labeled==l
+            array_filt += labeled == l
 
         array_filt = array_filt.astype(int)
 
@@ -205,7 +203,7 @@ class RasterHelper():
         opath = os.path.join(outroot, outfn)
 
         data = rasterio.open(ipath)
-        dsmask = gdal.Open(mask_pathself)
+        dsmask = gdal.Open(mask_path)
 
         minx0, miny0, maxx0, maxy0 = self.bounding_coordinates(dsmask)
         dsmask = None
@@ -241,7 +239,7 @@ class RasterHelper():
             dest.write(out_img)
 
         return opath
-            
+
     def minimum_filter_array(self, ipath, outpath):
         """
         Takes a median filter of the image
@@ -251,12 +249,11 @@ class RasterHelper():
 
         array = ds.read(1)
         filt_array = minimum_filter(array, (3, 3))
-        
+
         meta.update({
             'height': filt_array.shape[0],
             'width': filt_array.shape[1]
         })
-
 
         with rasterio.open(outpath, 'w', **meta) as dst:
             dst.write(filt_array.astype(rasterio.float32), 1)
@@ -285,7 +282,7 @@ class RasterHelper():
             try:
                 out_array[row, col] = float(dsarray[
                     ds.index(search_coords[0], search_coords[1])
-            ])
+                ])
             except:
                 out_array[row, col] = None
 
