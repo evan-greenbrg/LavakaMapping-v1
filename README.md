@@ -1,6 +1,7 @@
 # LavakaMapping-v1
 
 This is part of a project where I was attempting to first classify erosional gullies in the Madagascar highlands, and then measure phase correlation over gully features using Differential Interferometric Synthetic Aperature Radar (DInSAR).
+
 <br/>File breakdown:
 <br/><strong>PreProcess.py:</strong> Takes individual input features, converts them to the same EPSG, clips them to the same extent, resamples them to the same size, and stacks them to a single meta-file.
 <br/><strong>Trainer.py:</strong> Performs the model trainig. Uses a Random Forest Classifier from SK-Learn. Performs test-train split, cross-validation, and model analysis. Saves best fit model.
